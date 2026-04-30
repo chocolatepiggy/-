@@ -137,7 +137,7 @@ class MaritimeTradeGameGUI:
 
         self.show_welcome()
 
-    # ==================== Core Methods | 核心方法 ====================
+    # ==================== 核心方法 ====================
 
     def setup_keyboard_shortcuts(self):
         """The function binds specific keyboard combinations to corresponding game actions to enable quicker user interaction."""
@@ -655,7 +655,7 @@ class MaritimeTradeGameGUI:
             "is_product_card": True
         }
 
-    # ==================== Trading & Financial Methods | 交易和财务方法 ====================
+    # ==================== 交易与财务方法 ====================
 
     def purchase_card_specific(self, card):
         """The function verifies available funds, deducts the cost, and adds the purchased items to the player inventory."""
@@ -832,7 +832,7 @@ class MaritimeTradeGameGUI:
             self.show_welcome()
             self.update_button_states()
 
-    # ==================== Worker Management Interface | 工人管理界面 ====================
+    # ==================== 工人管理界面 ====================
 
     def create_inventory_row(self, parent, item):
         """The function builds a graphical row displaying a single inventory item with its corresponding icon and quantity."""
@@ -1168,7 +1168,7 @@ class MaritimeTradeGameGUI:
         """The function calls the main worker management interface with a flag to indicate it is running during a game phase."""
         self.show_worker_management(in_phase=True)
 
-    # ==================== UI Creation Methods | UI创建方法 ====================
+    # ==================== UI创建方法 ====================
 
     def setup_styles(self):
         """The function configures the global tkinter styling theme to match the defined maritime color palette."""
@@ -1437,7 +1437,7 @@ class MaritimeTradeGameGUI:
         scrollbar = ttk.Scrollbar(log_container, orient="vertical", command=self.log_text.yview)
         self.log_text.configure(yscrollcommand=scrollbar.set)
         self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        scrollbar.pack(side=tk.RIGHT, fill="Y")
 
     def log_message(self, message):
         """The function appends a new text string to the bottom log panel and automatically scrolls to the latest entry."""
@@ -1463,7 +1463,7 @@ class MaritimeTradeGameGUI:
         for item, label in self.inventory_labels.items():
             label.config(text=str(self.inventory.get(item, 0)))
 
-    # ==================== Welcome & Help | 欢迎和帮助 ====================
+    # ==================== 欢迎与帮助 ====================
 
     def show_welcome(self):
         """The function presents the initial start screen with game instructions, tips, and buttons to begin or load a game."""
@@ -1556,7 +1556,7 @@ class MaritimeTradeGameGUI:
         """
         messagebox.showinfo("⚓ 航海指南", instructions)
 
-    # ==================== Game Phases | 游戏阶段 ====================
+    # ==================== 游戏阶段 ====================
 
     def start_phase1(self):
         """The function resets purchase variables, generates market cards, and renders the procurement interface for the current round."""
@@ -2383,7 +2383,7 @@ class MaritimeTradeGameGUI:
         self.window.mainloop()
 
 
-# ==================== Program Entry | 程序入口 ====================
+# ==================== 程序入口 ====================
 
 if __name__ == "__main__":
     app = MaritimeTradeGameGUI()
