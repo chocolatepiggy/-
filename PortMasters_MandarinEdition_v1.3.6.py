@@ -19,14 +19,14 @@ class CustomButton(tk.Frame):
         super().__init__(parent, bg=bg, bd=borderwidth, relief=relief, cursor=cursor if state == tk.NORMAL else "arrow", **kwargs)
         self.command = command
         self.state = state
-        self.bg = bg
+        self.base_bg = bg  # Store the true base color separately to prevent hover mutation
         self.fg = fg
         self.disabled_bg = "#888888"
         self.disabled_fg = "#CCCCCC"
         
-        self.hover_bg = self._adjust_color(bg, 1.2)
+        self.hover_bg = self._adjust_color(self.base_bg, 1.2)
         
-        self.label = tk.Label(self, text=text, font=font, bg=self.bg, fg=self.fg, 
+        self.label = tk.Label(self, text=text, font=font, bg=self.base_bg, fg=self.fg, 
                               padx=padx, pady=pady, wraplength=wraplength, justify=tk.CENTER)
         self.label.pack(fill=tk.BOTH, expand=True)
         
@@ -61,36 +61,38 @@ class CustomButton(tk.Frame):
 
     def on_enter(self, event):
         if self.state == tk.NORMAL:
-            self.config(bg=self.hover_bg)
+            # Bypass custom config() to prevent mutating the base color
+            super().config(bg=self.hover_bg)
             self.label.config(bg=self.hover_bg)
 
     def on_leave(self, event):
         if self.state == tk.NORMAL:
-            self.config(bg=self.bg)
-            self.label.config(bg=self.bg)
+            # Revert to the true base color
+            super().config(bg=self.base_bg)
+            self.label.config(bg=self.base_bg)
             self._clicking = False
-            self.config(relief=tk.RAISED)
+            super().config(relief=tk.RAISED)
 
     def on_click(self, event):
         if self.state == tk.NORMAL:
-            self.config(relief=tk.SUNKEN)
+            super().config(relief=tk.SUNKEN)
             self._clicking = True
 
     def on_release(self, event):
         if self.state == tk.NORMAL and self._clicking:
             self._clicking = False
-            self.config(relief=tk.RAISED)
+            super().config(relief=tk.RAISED)
             if self.command:
                 self.command()
 
     def _apply_state(self):
         if self.state == tk.DISABLED:
-            self.config(bg=self.disabled_bg, cursor="arrow", relief=tk.RAISED)
+            super().config(bg=self.disabled_bg, cursor="arrow", relief=tk.RAISED)
             self.label.config(bg=self.disabled_bg, fg=self.disabled_fg)
             self._unbind_events()
         else:
-            self.config(bg=self.bg, cursor="hand2", relief=tk.RAISED)
-            self.label.config(bg=self.bg, fg=self.fg)
+            super().config(bg=self.base_bg, cursor="hand2", relief=tk.RAISED)
+            self.label.config(bg=self.base_bg, fg=self.fg)
             self._bind_events()
 
     def config(self, **kwargs):
@@ -100,11 +102,12 @@ class CustomButton(tk.Frame):
             self.state = kwargs.pop("state")
             self._apply_state()
         if "bg" in kwargs:
-            self.bg = kwargs.pop("bg")
-            self.hover_bg = self._adjust_color(self.bg, 1.2)
+            # Only update base_bg when explicitly configured from outside
+            self.base_bg = kwargs.pop("bg")
+            self.hover_bg = self._adjust_color(self.base_bg, 1.2)
             if self.state == tk.NORMAL:
-                super().config(bg=self.bg)
-                self.label.config(bg=self.bg)
+                super().config(bg=self.base_bg)
+                self.label.config(bg=self.base_bg)
         if "command" in kwargs:
             self.command = kwargs.pop("command")
         if kwargs:
