@@ -4,6 +4,118 @@ import random
 import json
 import os
 import math
+import sys
+
+
+class CustomButton(tk.Frame):
+    """A custom button widget to ensure cross-platform visual consistency, specifically fixing macOS background color rendering issues and allowing dynamic text sizing."""
+    def __init__(self, parent, text="", command=None, font=None, bg="#424242", fg="white", 
+                 relief=tk.RAISED, borderwidth=2, padx=15, pady=10, state=tk.NORMAL, 
+                 cursor="hand2", wraplength=0, **kwargs):
+        # Remove width and height from kwargs to prevent fixed-size truncation
+        kwargs.pop('width', None)
+        kwargs.pop('height', None)
+        
+        super().__init__(parent, bg=bg, bd=borderwidth, relief=relief, cursor=cursor if state == tk.NORMAL else "arrow", **kwargs)
+        self.command = command
+        self.state = state
+        self.bg = bg
+        self.fg = fg
+        self.disabled_bg = "#888888"
+        self.disabled_fg = "#CCCCCC"
+        
+        self.hover_bg = self._adjust_color(bg, 1.2)
+        
+        self.label = tk.Label(self, text=text, font=font, bg=self.bg, fg=self.fg, 
+                              padx=padx, pady=pady, wraplength=wraplength, justify=tk.CENTER)
+        self.label.pack(fill=tk.BOTH, expand=True)
+        
+        self._clicking = False
+        self._bind_events()
+        self._apply_state()
+
+    def _adjust_color(self, hex_color, factor):
+        try:
+            hex_color = hex_color.lstrip('#')
+            r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+            r = min(255, int(r * factor))
+            g = min(255, int(g * factor))
+            b = min(255, int(b * factor))
+            return f"#{r:02x}{g:02x}{b:02x}"
+        except:
+            return hex_color
+
+    def _bind_events(self):
+        for widget in (self, self.label):
+            widget.bind("<Enter>", self.on_enter)
+            widget.bind("<Leave>", self.on_leave)
+            widget.bind("<Button-1>", self.on_click)
+            widget.bind("<ButtonRelease-1>", self.on_release)
+
+    def _unbind_events(self):
+        for widget in (self, self.label):
+            widget.unbind("<Enter>")
+            widget.unbind("<Leave>")
+            widget.unbind("<Button-1>")
+            widget.unbind("<ButtonRelease-1>")
+
+    def on_enter(self, event):
+        if self.state == tk.NORMAL:
+            self.config(bg=self.hover_bg)
+            self.label.config(bg=self.hover_bg)
+
+    def on_leave(self, event):
+        if self.state == tk.NORMAL:
+            self.config(bg=self.bg)
+            self.label.config(bg=self.bg)
+            self._clicking = False
+            self.config(relief=tk.RAISED)
+
+    def on_click(self, event):
+        if self.state == tk.NORMAL:
+            self.config(relief=tk.SUNKEN)
+            self._clicking = True
+
+    def on_release(self, event):
+        if self.state == tk.NORMAL and self._clicking:
+            self._clicking = False
+            self.config(relief=tk.RAISED)
+            if self.command:
+                self.command()
+
+    def _apply_state(self):
+        if self.state == tk.DISABLED:
+            self.config(bg=self.disabled_bg, cursor="arrow", relief=tk.RAISED)
+            self.label.config(bg=self.disabled_bg, fg=self.disabled_fg)
+            self._unbind_events()
+        else:
+            self.config(bg=self.bg, cursor="hand2", relief=tk.RAISED)
+            self.label.config(bg=self.bg, fg=self.fg)
+            self._bind_events()
+
+    def config(self, **kwargs):
+        if "text" in kwargs:
+            self.label.config(text=kwargs.pop("text"))
+        if "state" in kwargs:
+            self.state = kwargs.pop("state")
+            self._apply_state()
+        if "bg" in kwargs:
+            self.bg = kwargs.pop("bg")
+            self.hover_bg = self._adjust_color(self.bg, 1.2)
+            if self.state == tk.NORMAL:
+                super().config(bg=self.bg)
+                self.label.config(bg=self.bg)
+        if "command" in kwargs:
+            self.command = kwargs.pop("command")
+        if kwargs:
+            super().config(**kwargs)
+            
+    def __getitem__(self, key):
+        if key == "state":
+            return self.state
+        if key == "text":
+            return self.label.cget("text")
+        return super().__getitem__(key)
 
 
 class MaritimeTradeGameGUI:
@@ -850,7 +962,7 @@ class MaritimeTradeGameGUI:
                  font=("Microsoft YaHei", 11),
                  bg="#F0F8FF",
                  fg=color,
-                 width=10,
+                 width=12,
                  anchor="w").pack(side=tk.LEFT)
 
         tk.Label(frame, text=str(self.inventory.get(item, 0)),
@@ -880,6 +992,7 @@ class MaritimeTradeGameGUI:
 
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+        self.bind_mousewheel(canvas)
 
         title_frame = tk.Frame(scrollable_frame, bg=self.colors["bg_light"])
         title_frame.pack(fill=tk.X, pady=20)
@@ -970,34 +1083,31 @@ class MaritimeTradeGameGUI:
         else:
             refresh_func = self.show_worker_management
 
-        tk.Button(hire_buttons_frame, text=f"👩‍🔧 雇佣织女 ({self.WEAVER_WAGE}💰)",
+        CustomButton(hire_buttons_frame, text=f"👩‍🔧 雇佣织女 ({self.WEAVER_WAGE}💰)",
                   font=("Microsoft YaHei", 12, "bold"),
                   bg=self.colors["button_success"],
                   fg="white",
                   relief=tk.RAISED,
                   borderwidth=2,
-                  width=20,
-                  height=2,
+                  padx=20, pady=15,
                   command=lambda: [self.hire_worker("weaver"), refresh_func()]).pack(side=tk.LEFT, padx=10)
 
-        tk.Button(hire_buttons_frame, text=f"👩‍🎨 雇佣纺织大师 ({self.MASTER_WEAVER_WAGE}💰)",
+        CustomButton(hire_buttons_frame, text=f"👩‍🎨 雇佣纺织大师 ({self.MASTER_WEAVER_WAGE}💰)",
                   font=("Microsoft YaHei", 12, "bold"),
                   bg=self.colors["button_primary"],
                   fg="white",
                   relief=tk.RAISED,
                   borderwidth=2,
-                  width=20,
-                  height=2,
+                  padx=20, pady=15,
                   command=lambda: [self.hire_worker("master"), refresh_func()]).pack(side=tk.LEFT, padx=10)
 
-        tk.Button(hire_buttons_frame, text=f"🌸 雇佣香囊师 ({self.SACHET_MAKER_WAGE}💰)",
+        CustomButton(hire_buttons_frame, text=f"🌸 雇佣香囊师 ({self.SACHET_MAKER_WAGE}💰)",
                   font=("Microsoft YaHei", 12, "bold"),
                   bg=self.colors["button_warning"],
                   fg="white",
                   relief=tk.RAISED,
                   borderwidth=2,
-                  width=20,
-                  height=2,
+                  padx=20, pady=15,
                   command=lambda: [self.hire_worker("sachet_maker"), refresh_func()]).pack(side=tk.LEFT, padx=10)
 
         if self.weavers or self.master_weavers or self.sachet_makers:
@@ -1031,10 +1141,11 @@ class MaritimeTradeGameGUI:
                              fg=self.colors["text_dark"]).pack(side=tk.LEFT, padx=(0, 10))
 
                     if in_phase and weaver['task'] is None:
-                        tk.Button(worker_frame, text=f"解雇 ({self.WEAVER_WAGE}💰)",
-                                  font=("Microsoft YaHei", 9),
+                        CustomButton(worker_frame, text=f"解雇 ({self.WEAVER_WAGE}💰)",
+                                  font=("Microsoft YaHei", 9, "bold"),
                                   bg=self.colors["button_danger"],
                                   fg="white",
+                                  padx=10, pady=5,
                                   command=lambda idx=i: [self.fire_worker("weaver", idx),
                                                          self.show_worker_management_in_phase()]).pack(side=tk.RIGHT,
                                                                                                        padx=5)
@@ -1042,17 +1153,19 @@ class MaritimeTradeGameGUI:
                 task_frame = tk.Frame(status_frame, bg="#F0F8FF")
                 task_frame.pack(pady=10)
 
-                tk.Button(task_frame, text="制作麻衣 (需2麻布)",
-                          font=("Microsoft YaHei", 10),
+                CustomButton(task_frame, text="制作麻衣 (需2麻布)",
+                          font=("Microsoft YaHei", 10, "bold"),
                           bg=self.colors["button_success"],
                           fg="white",
+                          padx=15, pady=10,
                           command=lambda: [self.assign_worker_task(self.weavers, "weaver", "麻衣"),
                                            refresh_func()]).pack(side=tk.LEFT, padx=5)
 
-                tk.Button(task_frame, text="制作布衣 (需2麻布+1丝绸)",
-                          font=("Microsoft YaHei", 10),
+                CustomButton(task_frame, text="制作布衣 (需2麻布+1丝绸)",
+                          font=("Microsoft YaHei", 10, "bold"),
                           bg=self.colors["button_success"],
                           fg="white",
+                          padx=15, pady=10,
                           command=lambda: [self.assign_worker_task(self.weavers, "weaver", "布衣"),
                                            refresh_func()]).pack(side=tk.LEFT, padx=5)
 
@@ -1078,10 +1191,11 @@ class MaritimeTradeGameGUI:
                              fg=self.colors["text_dark"]).pack(side=tk.LEFT, padx=(0, 10))
 
                     if in_phase and master['task'] is None:
-                        tk.Button(worker_frame, text=f"解雇 ({self.MASTER_WEAVER_WAGE}💰)",
-                                  font=("Microsoft YaHei", 9),
+                        CustomButton(worker_frame, text=f"解雇 ({self.MASTER_WEAVER_WAGE}💰)",
+                                  font=("Microsoft YaHei", 9, "bold"),
                                   bg=self.colors["button_danger"],
                                   fg="white",
+                                  padx=10, pady=5,
                                   command=lambda idx=i: [self.fire_worker("master", idx),
                                                          self.show_worker_management_in_phase()]).pack(side=tk.RIGHT,
                                                                                                        padx=5)
@@ -1092,10 +1206,11 @@ class MaritimeTradeGameGUI:
                 for task in ["麻衣", "布衣", "绫罗绸缎"]:
                     recipe = self.RECIPES[task]
                     materials = [f"{a}{m}" for m, a in recipe["materials"].items()]
-                    tk.Button(task_frame, text=f"制作{task} (需{'+'.join(materials)})",
-                              font=("Microsoft YaHei", 10),
+                    CustomButton(task_frame, text=f"制作{task} (需{'+'.join(materials)})",
+                              font=("Microsoft YaHei", 10, "bold"),
                               bg=self.colors["button_primary"],
                               fg="white",
+                              padx=15, pady=10,
                               command=lambda t=task: [self.assign_worker_task(self.master_weavers, "master", t),
                                                       refresh_func()]).pack(side=tk.LEFT, padx=5)
 
@@ -1116,10 +1231,11 @@ class MaritimeTradeGameGUI:
                              fg=self.colors["text_dark"]).pack(side=tk.LEFT, padx=(0, 10))
 
                     if in_phase and maker['task'] is None:
-                        tk.Button(worker_frame, text=f"解雇 ({self.SACHET_MAKER_WAGE}💰)",
-                                  font=("Microsoft YaHei", 9),
+                        CustomButton(worker_frame, text=f"解雇 ({self.SACHET_MAKER_WAGE}💰)",
+                                  font=("Microsoft YaHei", 9, "bold"),
                                   bg=self.colors["button_danger"],
                                   fg="white",
+                                  padx=10, pady=5,
                                   command=lambda idx=i: [self.fire_worker("sachet_maker", idx),
                                                          self.show_worker_management_in_phase()]).pack(side=tk.RIGHT,
                                                                                                        padx=5)
@@ -1127,10 +1243,11 @@ class MaritimeTradeGameGUI:
                 task_frame = tk.Frame(status_frame, bg="#F0F8FF")
                 task_frame.pack(pady=10)
 
-                tk.Button(task_frame, text="制作香囊 (需1丝绸+2茶叶)",
-                          font=("Microsoft YaHei", 10),
+                CustomButton(task_frame, text="制作香囊 (需1丝绸+2茶叶)",
+                          font=("Microsoft YaHei", 10, "bold"),
                           bg=self.colors["button_warning"],
                           fg="white",
+                          padx=15, pady=10,
                           command=lambda: [self.assign_worker_task(self.sachet_makers, "sachet_maker", "香囊"),
                                            refresh_func()]).pack(side=tk.LEFT, padx=5)
 
@@ -1138,26 +1255,24 @@ class MaritimeTradeGameGUI:
         separator2.pack(fill=tk.X, padx=50, pady=15)
 
         if in_phase:
-            tk.Button(scrollable_frame,
+            CustomButton(scrollable_frame,
                       text="✅ 完成工匠管理，继续航行",
                       font=("Microsoft YaHei", 16, "bold"),
                       bg=self.colors["button_primary"],
                       fg="white",
                       relief=tk.RAISED,
                       borderwidth=3,
-                      width=20,
-                      height=2,
+                      padx=30, pady=15,
                       command=self.start_phase2).pack(pady=10)
         else:
-            tk.Button(scrollable_frame,
+            CustomButton(scrollable_frame,
                       text="🔙 返回主界面",
                       font=("Microsoft YaHei", 16, "bold"),
                       bg=self.colors["button_primary"],
                       fg="white",
                       relief=tk.RAISED,
                       borderwidth=3,
-                      width=20,
-                      height=2,
+                      padx=30, pady=15,
                       command=self.show_welcome).pack(pady=10)
 
         canvas.update_idletasks()
@@ -1167,6 +1282,18 @@ class MaritimeTradeGameGUI:
     def show_worker_management_in_phase(self):
         """The function calls the main worker management interface with a flag to indicate it is running during a game phase."""
         self.show_worker_management(in_phase=True)
+
+    def bind_mousewheel(self, canvas):
+        """The function binds cross-platform mousewheel scrolling to a canvas."""
+        def on_mousewheel(event):
+            if sys.platform == 'darwin':
+                delta = -1 * event.delta
+            else:
+                delta = int(-1 * (event.delta / 120))
+            canvas.yview_scroll(delta, "units")
+        
+        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", on_mousewheel))
+        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
 
     # ==================== UI创建方法 ====================
 
@@ -1286,12 +1413,7 @@ class MaritimeTradeGameGUI:
 
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
-
-        def on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
-        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", on_mousewheel))
-        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+        self.bind_mousewheel(canvas)
 
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
@@ -1338,7 +1460,7 @@ class MaritimeTradeGameGUI:
                          font=("Microsoft YaHei", 9),
                          bg=self.colors["bg_light"],
                          fg=self.colors["text_dark"],
-                         width=10,
+                         width=12,
                          anchor="w").pack(side=tk.LEFT)
 
                 tk.Label(frame, text=str(count),
@@ -1364,7 +1486,7 @@ class MaritimeTradeGameGUI:
                  font=("Microsoft YaHei", 9),
                  bg=self.colors["bg_light"],
                  fg=color,
-                 width=8,
+                 width=10,
                  anchor="w").pack(side=tk.LEFT)
 
         label_value = tk.Label(frame, text=str(self.inventory.get(item, 0)),
@@ -1394,17 +1516,17 @@ class MaritimeTradeGameGUI:
         row1_frame = ttk.Frame(control_container, style="DarkFrame.TLabelframe")
         row1_frame.pack(fill=tk.X, pady=3)
 
-        self.start_btn = tk.Button(row1_frame, text="🚢 开始航行",
+        self.start_btn = CustomButton(row1_frame, text="🚢 开始航行",
                                    font=("Microsoft YaHei", 10, "bold"),
                                    bg=self.colors["button_primary"], fg=self.colors["text_light"],
-                                   relief=tk.RAISED, borderwidth=2, width=15, height=1,
+                                   relief=tk.RAISED, borderwidth=2, padx=20, pady=10,
                                    cursor="hand2", command=self.show_worker_management)
         self.start_btn.pack(side=tk.LEFT, padx=2)
 
-        self.next_btn = tk.Button(row1_frame, text="⏭️ 继续航行",
+        self.next_btn = CustomButton(row1_frame, text="⏭️ 继续航行",
                                   font=("Microsoft YaHei", 10, "bold"),
                                   bg=self.colors["button_primary"], fg=self.colors["text_light"],
-                                  relief=tk.RAISED, borderwidth=2, width=15, height=1,
+                                  relief=tk.RAISED, borderwidth=2, padx=20, pady=10,
                                   cursor="hand2", state=tk.DISABLED, command=self.next_phase)
         self.next_btn.pack(side=tk.LEFT, padx=2)
 
@@ -1418,9 +1540,9 @@ class MaritimeTradeGameGUI:
         ]
 
         for text, command, color in buttons:
-            tk.Button(row2_frame, text=text, font=("Microsoft YaHei", 10, "bold"),
+            CustomButton(row2_frame, text=text, font=("Microsoft YaHei", 10, "bold"),
                       bg=color, fg="white", relief=tk.RAISED, borderwidth=2,
-                      width=15, height=1, cursor="hand2", command=command).pack(side=tk.LEFT, padx=2)
+                      padx=20, pady=10, cursor="hand2", command=command).pack(side=tk.LEFT, padx=2)
 
     def create_log_panel(self, parent):
         """The function builds the bottom scrolling text box that records all game events and financial transactions."""
@@ -1437,7 +1559,7 @@ class MaritimeTradeGameGUI:
         scrollbar = ttk.Scrollbar(log_container, orient="vertical", command=self.log_text.yview)
         self.log_text.configure(yscrollcommand=scrollbar.set)
         self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill="Y")
+        scrollbar.pack(side=tk.RIGHT, fill="y")
 
     def log_message(self, message):
         """The function appends a new text string to the bottom log panel and automatically scrolls to the latest entry."""
@@ -1488,14 +1610,14 @@ class MaritimeTradeGameGUI:
                  fg=self.colors["accent_blue"]).pack(pady=(0, 30))
 
         if os.path.exists(self.save_file):
-            tk.Button(welcome_frame, text="📂 继续航行", font=("Microsoft YaHei", 12, "bold"),
+            CustomButton(welcome_frame, text="📂 继续航行", font=("Microsoft YaHei", 12, "bold"),
                       bg=self.colors["button_success"], fg=self.colors["text_light"],
-                      relief=tk.RAISED, borderwidth=3, width=20, height=2,
+                      relief=tk.RAISED, borderwidth=3, padx=30, pady=15,
                       cursor="hand2", command=self.load_game).pack(pady=10)
 
-        tk.Button(welcome_frame, text="🚢 扬帆起航", font=("Microsoft YaHei", 16, "bold"),
+        CustomButton(welcome_frame, text="🚢 扬帆起航", font=("Microsoft YaHei", 16, "bold"),
                   bg=self.colors["button_primary"], fg=self.colors["text_light"],
-                  relief=tk.RAISED, borderwidth=3, width=20, height=2,
+                  relief=tk.RAISED, borderwidth=3, padx=30, pady=15,
                   cursor="hand2", command=self.start_phase1).pack(pady=20)
 
         tips_frame = ttk.Frame(welcome_frame, style="DarkFrame.TLabelframe")
@@ -1636,6 +1758,7 @@ class MaritimeTradeGameGUI:
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.pack(side="left", fill="both", expand=True, padx=(0, 5))
         scrollbar.pack(side="right", fill="y")
+        self.bind_mousewheel(canvas)
 
         grid_frame = tk.Frame(scrollable_frame, bg=self.colors["bg_light"])
         grid_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -1710,8 +1833,8 @@ class MaritimeTradeGameGUI:
         btn_frame = tk.Frame(card_frame, bg="#F0F8FF")
         btn_frame.pack(fill=tk.X, padx=15, pady=(5, 12))
 
-        btn = tk.Button(btn_frame, text=btn_text, font=("Microsoft YaHei", 12, "bold"),
-                        bg=btn_bg, fg="white", relief=tk.RAISED, borderwidth=1, height=2,
+        btn = CustomButton(btn_frame, text=btn_text, font=("Microsoft YaHei", 12, "bold"),
+                        bg=btn_bg, fg="white", relief=tk.RAISED, borderwidth=1, padx=15, pady=15, wraplength=280,
                         state=btn_state, command=lambda c=card: self.purchase_card_specific(c))
         btn.pack(fill=tk.X, expand=True)
         self.purchase_buttons.append({"button": btn, "card_id": card["id"], "total_cost": card["total_cost"]})
@@ -1776,8 +1899,8 @@ class MaritimeTradeGameGUI:
         btn_frame = tk.Frame(order_frame, bg="#F0F8FF")
         btn_frame.pack(fill=tk.X, padx=15, pady=(5, 12))
 
-        btn = tk.Button(btn_frame, text=btn_text, font=("Microsoft YaHei", 12, "bold"),
-                        bg=btn_bg, fg="white", relief=tk.RAISED, borderwidth=1, height=2,
+        btn = CustomButton(btn_frame, text=btn_text, font=("Microsoft YaHei", 12, "bold"),
+                        bg=btn_bg, fg="white", relief=tk.RAISED, borderwidth=1, padx=15, pady=15, wraplength=280,
                         state=btn_state, command=lambda o=order: self.complete_order(o))
         btn.pack(fill=tk.X, expand=True)
         self.order_buttons.append({"button": btn, "order_id": order["id"], "net_profit": net_profit})
@@ -1795,7 +1918,7 @@ class MaritimeTradeGameGUI:
                  bg="#F0F8FF").pack(side=tk.LEFT, padx=(0, 5))
 
         tk.Label(item_frame, text=resource, font=("Microsoft YaHei", font_size, "bold"),
-                 bg="#F0F8FF", fg=color, width=8).pack(side=tk.LEFT)
+                 bg="#F0F8FF", fg=color, width=10).pack(side=tk.LEFT)
 
         if "quantity" in resource_info:
             tk.Label(item_frame, text=f"×{resource_info['quantity']}",
@@ -1817,9 +1940,9 @@ class MaritimeTradeGameGUI:
         """The function creates a standardized bottom navigation button for proceeding to the next game stage."""
         bottom_frame = tk.Frame(parent, bg=self.colors["bg_light"])
         bottom_frame.pack(fill=tk.X, pady=(15, 5))
-        tk.Button(bottom_frame, text=text, font=("Microsoft YaHei", 13, "bold"),
+        CustomButton(bottom_frame, text=text, font=("Microsoft YaHei", 13, "bold"),
                   bg=self.colors["button_primary"], fg="white", relief=tk.RAISED,
-                  borderwidth=2, width=25, height=2, command=command).pack(pady=5)
+                  borderwidth=2, padx=30, pady=15, command=command).pack(pady=5)
 
     def update_purchase_buttons(self):
         """The function refreshes the visual state and availability of all procurement buttons based on current funds."""
@@ -1920,9 +2043,9 @@ class MaritimeTradeGameGUI:
             btn_bg = self.colors["button_warning"]
             btn_command = self.force_pay_cost
 
-        tk.Button(maintenance_frame, text=btn_text, font=("Microsoft YaHei", 16, "bold"),
+        CustomButton(maintenance_frame, text=btn_text, font=("Microsoft YaHei", 16, "bold"),
                   bg=btn_bg, fg="white", relief=tk.RAISED, borderwidth=3,
-                  width=25, height=2, command=btn_command).pack(pady=20)
+                  padx=30, pady=15, command=btn_command).pack(pady=20)
         self.update_button_states()
 
     def show_bankruptcy_screen(self):
@@ -1995,25 +2118,23 @@ class MaritimeTradeGameGUI:
         buttons_frame = tk.Frame(bankruptcy_frame, bg=self.colors["bg_light"])
         buttons_frame.pack(pady=10)
 
-        tk.Button(buttons_frame, text="🔄 重新起航",
+        CustomButton(buttons_frame, text="🔄 重新起航",
                   font=("Microsoft YaHei", 16, "bold"),
                   bg=self.colors["button_primary"],
                   fg="white",
                   relief=tk.RAISED,
                   borderwidth=3,
-                  width=18,
-                  height=2,
+                  padx=25, pady=15,
                   cursor="hand2",
                   command=self.restart_game).pack(side=tk.LEFT, padx=10)
 
-        tk.Button(buttons_frame, text="💡 贸易策略",
-                  font=("Microsoft YaHei", 14),
+        CustomButton(buttons_frame, text="💡 贸易策略",
+                  font=("Microsoft YaHei", 14, "bold"),
                   bg=self.colors["button_warning"],
                   fg="white",
                   relief=tk.RAISED,
                   borderwidth=2,
-                  width=18,
-                  height=2,
+                  padx=25, pady=15,
                   cursor="hand2",
                   command=self.show_bankruptcy_tips).pack(side=tk.LEFT, padx=10)
 
@@ -2079,6 +2200,7 @@ class MaritimeTradeGameGUI:
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.pack(side="left", fill="both", expand=True, padx=(5, 0))
         scrollbar.pack(side="right", fill="y")
+        self.bind_mousewheel(canvas)
 
         tk.Label(scrollable_frame, text="🚢 船只升级系统", font=("Microsoft YaHei", 28, "bold"),
                  bg=self.colors["bg_light"], fg=self.colors["bg_dark"]).pack(pady=25)
@@ -2167,9 +2289,9 @@ class MaritimeTradeGameGUI:
                 btn_state = tk.DISABLED
                 btn_command = None
 
-            tk.Button(button_frame, text=btn_text, font=("Microsoft YaHei", 16, "bold"),
+            CustomButton(button_frame, text=btn_text, font=("Microsoft YaHei", 16, "bold"),
                       bg=btn_bg, fg="white", relief=tk.RAISED, borderwidth=3,
-                      width=30, height=4, state=btn_state,
+                      padx=30, pady=25, state=btn_state,
                       cursor="hand2" if can_upgrade else "arrow",
                       command=btn_command if can_upgrade else None).pack()
         else:
@@ -2196,9 +2318,9 @@ class MaritimeTradeGameGUI:
         ]
 
         for text, command, color in buttons:
-            tk.Button(buttons_frame, text=text, font=("Microsoft YaHei", 13, "bold"),
+            CustomButton(buttons_frame, text=text, font=("Microsoft YaHei", 13, "bold"),
                       bg=color, fg="white", relief=tk.RAISED, borderwidth=2,
-                      width=15, height=2, cursor="hand2", command=command).pack(side=tk.LEFT, padx=10)
+                      padx=20, pady=15, cursor="hand2", command=command).pack(side=tk.LEFT, padx=10)
 
         canvas.update_idletasks()
         canvas.config(scrollregion=canvas.bbox("all"))
@@ -2306,9 +2428,9 @@ class MaritimeTradeGameGUI:
                  font=("Microsoft YaHei", 20),
                  bg=self.colors["bg_light"], fg=self.colors["accent_gold"]).pack(pady=20)
 
-        tk.Button(result_frame, text="🔄 重新起航", font=("Microsoft YaHei", 18, "bold"),
+        CustomButton(result_frame, text="🔄 重新起航", font=("Microsoft YaHei", 18, "bold"),
                   bg=self.colors["button_primary"], fg="white", relief=tk.RAISED,
-                  borderwidth=3, width=20, height=2,
+                  borderwidth=3, padx=30, pady=15,
                   command=self.restart_game).pack(pady=25)
 
         self.delete_save()
