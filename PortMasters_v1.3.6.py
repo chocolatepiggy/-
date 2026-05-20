@@ -20,14 +20,14 @@ class CustomButton(tk.Frame):
         super().__init__(parent, bg=bg, bd=borderwidth, relief=relief, cursor=cursor if state == tk.NORMAL else "arrow", **kwargs)
         self.command = command
         self.state = state
-        self.bg = bg
+        self.base_bg = bg  # Store the true base color separately to prevent hover mutation
         self.fg = fg
         self.disabled_bg = "#888888"
         self.disabled_fg = "#CCCCCC"
         
-        self.hover_bg = self._adjust_color(bg, 1.2)
+        self.hover_bg = self._adjust_color(self.base_bg, 1.2)
         
-        self.label = tk.Label(self, text=text, font=font, bg=self.bg, fg=self.fg, 
+        self.label = tk.Label(self, text=text, font=font, bg=self.base_bg, fg=self.fg, 
                               padx=padx, pady=pady, wraplength=wraplength, justify=tk.CENTER)
         self.label.pack(fill=tk.BOTH, expand=True)
         
@@ -62,36 +62,38 @@ class CustomButton(tk.Frame):
 
     def on_enter(self, event):
         if self.state == tk.NORMAL:
-            self.config(bg=self.hover_bg)
+            # Bypass custom config() to prevent mutating the base color
+            super().config(bg=self.hover_bg)
             self.label.config(bg=self.hover_bg)
 
     def on_leave(self, event):
         if self.state == tk.NORMAL:
-            self.config(bg=self.bg)
-            self.label.config(bg=self.bg)
+            # Revert to the true base color
+            super().config(bg=self.base_bg)
+            self.label.config(bg=self.base_bg)
             self._clicking = False
-            self.config(relief=tk.RAISED)
+            super().config(relief=tk.RAISED)
 
     def on_click(self, event):
         if self.state == tk.NORMAL:
-            self.config(relief=tk.SUNKEN)
+            super().config(relief=tk.SUNKEN)
             self._clicking = True
 
     def on_release(self, event):
         if self.state == tk.NORMAL and self._clicking:
             self._clicking = False
-            self.config(relief=tk.RAISED)
+            super().config(relief=tk.RAISED)
             if self.command:
                 self.command()
 
     def _apply_state(self):
         if self.state == tk.DISABLED:
-            self.config(bg=self.disabled_bg, cursor="arrow", relief=tk.RAISED)
+            super().config(bg=self.disabled_bg, cursor="arrow", relief=tk.RAISED)
             self.label.config(bg=self.disabled_bg, fg=self.disabled_fg)
             self._unbind_events()
         else:
-            self.config(bg=self.bg, cursor="hand2", relief=tk.RAISED)
-            self.label.config(bg=self.bg, fg=self.fg)
+            super().config(bg=self.base_bg, cursor="hand2", relief=tk.RAISED)
+            self.label.config(bg=self.base_bg, fg=self.fg)
             self._bind_events()
 
     def config(self, **kwargs):
@@ -101,11 +103,12 @@ class CustomButton(tk.Frame):
             self.state = kwargs.pop("state")
             self._apply_state()
         if "bg" in kwargs:
-            self.bg = kwargs.pop("bg")
-            self.hover_bg = self._adjust_color(self.bg, 1.2)
+            # Only update base_bg when explicitly configured from outside
+            self.base_bg = kwargs.pop("bg")
+            self.hover_bg = self._adjust_color(self.base_bg, 1.2)
             if self.state == tk.NORMAL:
-                super().config(bg=self.bg)
-                self.label.config(bg=self.bg)
+                super().config(bg=self.base_bg)
+                self.label.config(bg=self.base_bg)
         if "command" in kwargs:
             self.command = kwargs.pop("command")
         if kwargs:
@@ -123,7 +126,6 @@ class MaritimeTradeGameGUI:
     def __init__(self):
         """The function initializes the game window, settings, and inventory data."""
         self.window = tk.Tk()
-        # Game version/title information restricted to English only
         self.window.title("Maritime Trade Tycoon")
         self.window.geometry("1600x950")
         self.window.minsize(1400, 850)
@@ -140,7 +142,7 @@ class MaritimeTradeGameGUI:
             "button_success": "#4CAF50",
             "button_warning": "#FF9800",
             "button_danger": "#FF5252",
-            "button_dark_grey": "#424242",  # Standardized dark grey for all buttons
+            "button_dark_grey": "#424242",
             "hemp": "#8B7355",
             "silk": "#DC143C",
             "tea": "#228B22",
@@ -150,7 +152,6 @@ class MaritimeTradeGameGUI:
             "sachet": "#FF1493",
             "worker_bg": "#FFF8DC"
         }
-        # Standardized font for ALL buttons throughout the application
         self.BUTTON_FONT = ("Microsoft YaHei", 11, "bold")
         self.window.configure(bg=self.colors["bg_light"])
         self.inventory = {
@@ -1156,7 +1157,6 @@ class MaritimeTradeGameGUI:
         title_frame.grid(row=0, column=0, columnspan=3, pady=(0, 10), sticky=(tk.W, tk.E))
         title_container = ttk.Frame(title_frame, style="DarkFrame.TLabelframe")
         title_container.pack(fill=tk.X, pady=5)
-        # Game version/title information restricted to English only
         tk.Label(title_container, text="⚓ Maritime Trade Tycoon 🚢",
                  font=("Microsoft YaHei", 22, "bold"),
                  bg=self.colors["bg_light"], fg=self.colors["bg_dark"]).pack()
@@ -1387,7 +1387,6 @@ class MaritimeTradeGameGUI:
         self.log_message("=" * 50)
         welcome_frame = ttk.Frame(self.phase_content, style="DarkFrame.TLabelframe")
         welcome_frame.pack(fill=tk.BOTH, expand=True, pady=30)
-        # Game version/title information restricted to English only
         tk.Label(welcome_frame, text="⚓ Maritime Trade Tycoon 🚢",
                  font=("Microsoft YaHei", 28, "bold"),
                  bg=self.colors["bg_light"], fg=self.colors["bg_dark"]).pack(pady=(20, 10))
@@ -1573,7 +1572,6 @@ class MaritimeTradeGameGUI:
         can_afford = self.money >= card["total_cost"] and not is_purchased
         btn_text = "✅ Purchased" if is_purchased else f"🛒 Buy ({card['total_cost']}💰)"
         btn_state = tk.DISABLED if is_purchased or not can_afford else tk.NORMAL
-        # Standardized: dark grey background for all buttons regardless of state
         btn_bg = self.colors["button_dark_grey"]
         btn_frame = tk.Frame(card_frame, bg="#F0F8FF")
         btn_frame.pack(fill=tk.X, padx=15, pady=(5, 12))
@@ -1627,7 +1625,6 @@ class MaritimeTradeGameGUI:
         is_completed = order["id"] in self.completed_orders
         btn_text = "✅ Completed" if is_completed else f"🤝 Trade (Net {net_profit}💰)"
         btn_state = tk.DISABLED if is_completed or not can_complete else tk.NORMAL
-        # Standardized: dark grey background for all buttons regardless of state
         btn_bg = self.colors["button_dark_grey"]
         btn_frame = tk.Frame(order_frame, bg="#F0F8FF")
         btn_frame.pack(fill=tk.X, padx=15, pady=(5, 12))
@@ -1682,7 +1679,6 @@ class MaritimeTradeGameGUI:
 
             btn_text = "✅ Purchased" if is_purchased else f"🛒 Buy ({total_cost}💰)"
             btn_state = tk.DISABLED if is_purchased or not can_afford else tk.NORMAL
-            # Standardized: dark grey background for all buttons regardless of state
             btn_bg = self.colors["button_dark_grey"]
             button.config(text=btn_text, state=btn_state, bg=btn_bg)
 
@@ -1708,7 +1704,6 @@ class MaritimeTradeGameGUI:
                     break
             btn_text = "✅ Completed" if is_completed else f"🤝 Trade (Net {net_profit}💰)"
             btn_state = tk.DISABLED if is_completed or not can_complete else tk.NORMAL
-            # Standardized: dark grey background for all buttons regardless of state
             btn_bg = self.colors["button_dark_grey"]
             button.config(text=btn_text, state=btn_state, bg=btn_bg)
 
@@ -2153,4 +2148,5 @@ class MaritimeTradeGameGUI:
         self.window.mainloop()
 
 
-if __name__ == "__main__": app = MaritimeTradeGameGUI().run()
+if __name__ == "__main__": 
+    app = MaritimeTradeGameGUI().run()
