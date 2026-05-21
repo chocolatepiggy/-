@@ -227,8 +227,8 @@ class PortMasters:
 
         self.ports = ["Quanzhou Port", "Guangzhou Port", "Ningbo Port", "Yangzhou Port", "Hangzhou Port"]
         self.commodities = {
-            "Hemp": {"ports": ["Quanzhou Port", "Ningbo Port"], "base_price": (3, 5)},
-            "Silk": {"ports": ["Hangzhou Port", "Yangzhou Port"], "base_price": (6, 9)},
+            "Hemp": {"ports": ["Quanzhou Port", "Ningbo Port"], "base_price": (3, 6)},
+            "Silk": {"ports": ["Hangzhou Port", "Yangzhou Port"], "base_price": (6, 10)},
             "Tea": {"ports": ["Guangzhou Port", "Quanzhou Port"], "base_price": (10, 14)}
         }
         self.product_prices = {
